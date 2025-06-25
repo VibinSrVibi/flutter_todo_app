@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // For encoding/decoding JSON
 
 void main() {
   runApp(const MainApp());
@@ -23,7 +25,14 @@ class MainAppContent extends StatefulWidget{
 
 class MainAppState extends State<MainAppContent>{
   TextEditingController task=TextEditingController();
-  List<String> taskList=["hai","hello"];
+  List<String> taskList=[];
+
+   @override
+    void initState() {
+      super.initState();
+      loadTaskList();
+    }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -53,7 +62,7 @@ class MainAppState extends State<MainAppContent>{
                   print(task.text);
                   if(task.text.trim().isEmpty){
                     Fluttertoast.showToast(
-                        msg: "This is Center Short Toast",
+                        msg: "Please enter your task",
                         toastLength: Toast.LENGTH_SHORT,
                         gravity: ToastGravity.BOTTOM,
                         timeInSecForIosWeb: 1,
@@ -65,6 +74,7 @@ class MainAppState extends State<MainAppContent>{
                     setState(() {
                       taskList.add(task.text);
                     });
+                    saveTaskList();
                     print(taskList);
                     task.clear();
                   }
@@ -81,20 +91,36 @@ class MainAppState extends State<MainAppContent>{
             Flexible(child: ListView.builder(
               itemCount: taskList.length,
               itemBuilder: (context,index){
+                final reversedIndex = taskList.length - 1 - index;
                 return Row(children: [
                         Expanded(
                           child: Container(
                                   padding: EdgeInsets.all(10),
-                                  child: Text(taskList[index]),
+                                  child: Text(taskList[reversedIndex]),
                                 ),
                         ),
                         
                         MaterialButton(onPressed: (){
-                          print(index);
-                          setState(() {
-                            taskList.removeAt(index);
+                          showDialog(context: context, builder: (BuildContext context){
+                            return AlertDialog(
+                              title: Text("Are you sure to delete this task?"),
+                              actions: [
+                                TextButton(onPressed: (){
+                                  Navigator.of(context).pop();
+                                }, child: Text("Cancel")),
+                                TextButton(onPressed: (){
+                                  print(reversedIndex);
+                                  setState(() {
+                                    taskList.removeAt(reversedIndex);
+                                  });
+                                  print(taskList);
+                                  saveTaskList();
+                                  Navigator.of(context).pop();
+                                }, child: Text("Delete",style: TextStyle(color: Colors.red)))
+                              ],
+                            );
                           });
-                          print(taskList);
+                          
                         },child: Text("Delete", style: TextStyle(color: Colors.white),),color: Colors.red)
                   ])
                 ;
@@ -104,5 +130,21 @@ class MainAppState extends State<MainAppContent>{
         ),
       ),
     );
+  }
+
+  Future<void> saveTaskList() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('taskList', jsonEncode(taskList));
+  }
+
+  Future<void> loadTaskList() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? data = prefs.getString('taskList');
+
+    if (data != null) {
+      setState(() {
+        taskList = List<String>.from(jsonDecode(data));
+      });
+    }
   }
 }
